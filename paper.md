@@ -8,7 +8,7 @@ tags:
   - BrainVision
 authors:
   - name: Roberto Douglas Guimarães de Aquino
-    orcid: 0000-0000-0000-0000
+    orcid: 0000-0002-8486-8354
     affiliation: 1
 affiliations:
   - name: Universidade de São Paulo, São Paulo, Brazil
