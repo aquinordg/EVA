@@ -4,7 +4,7 @@ Thank you for your interest in contributing to EVA!
 
 ## Reporting bugs
 
-Open an issue on [GitHub](https://github.com/aquinordg/eva/issues) and include:
+Open an issue on [GitHub](https://github.com/aquinordga/EVA/issues) and include:
 
 - A **minimal reproducible example** (code + data shape + expected vs. actual output)
 - The full traceback
@@ -18,7 +18,7 @@ PRs implementing features are welcome once the issue has been discussed.
 ## Setting up a development environment
 
 ```bash
-git clone https://github.com/aquinordg/eva
+git clone https://github.com/aquinordga/EVA
 cd eva
 pip install -e ".[test]"
 ```

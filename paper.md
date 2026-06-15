@@ -70,7 +70,7 @@ EVA requires Python 3.10 or later. It can be installed directly from the
 repository:
 
 ```bash
-pip install git+https://github.com/aquinordga/EVA.git
+pip install eva-eeg
 ```
 
 Core dependencies are MNE-Python [@Gramfort2013], SciPy [@Virtanen2020],

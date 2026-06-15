@@ -1,8 +1,7 @@
-![Project](https://img.shields.io/badge/Project-eva-blue)
-![Author](https://img.shields.io/badge/Author-aquinordg-green)
+[![PyPI](https://img.shields.io/pypi/v/eva-eeg)](https://pypi.org/project/eva-eeg/)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
-![Version](https://img.shields.io/badge/Version-1.1.0-orange)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
+![CI](https://github.com/aquinordga/EVA/actions/workflows/ci.yml/badge.svg)
 
 # EVA — EEG data Validation and preprocessing Assistant
 
@@ -15,15 +14,15 @@ EVA is built on top of [MNE-Python](https://mne.tools), an open-source library f
 ## Installation
 
 ```bash
-pip install git+https://github.com/aquinordg/eva.git
+pip install eva-eeg
 ```
 
 Or clone and install in editable mode:
 
 ```bash
-git clone https://github.com/aquinordg/eva.git
-cd eva
-pip install -e .
+git clone https://github.com/aquinordga/EVA.git
+cd EVA
+pip install -e ".[test]"
 ```
 
 **Requirements:** Python 3.10+, MNE-Python, NumPy, SciPy, pandas, h5py.
