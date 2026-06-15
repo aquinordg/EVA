@@ -3,13 +3,25 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "eva"
+name = "eva-eeg"
 version = "1.0.0"
 description = "EEG data Validation and preprocessing Assistant"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "AQUINO, R. D. G.", email = "aquinordga@gmail.com" }]
 requires-python = ">=3.10"
+keywords = ["EEG", "neuroscience", "signal processing", "BrainVision", "preprocessing", "epochs"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
 dependencies = [
     "mne>=1.6.0",
     "numpy>=1.24.0",
@@ -25,7 +37,9 @@ dependencies = [
 test = ["pytest>=7.0"]
 
 [project.urls]
-Repository = "https://github.com/aquinordg/eva"
+Homepage = "https://github.com/aquinordga/EVA"
+Repository = "https://github.com/aquinordga/EVA"
+"Bug Tracker" = "https://github.com/aquinordga/EVA/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
