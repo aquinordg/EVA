@@ -17,14 +17,6 @@ EVA is built on top of [MNE-Python](https://mne.tools), an open-source library f
 pip install eva-eeg
 ```
 
-Or clone and install in editable mode:
-
-```bash
-git clone https://github.com/aquinordga/EVA.git
-cd EVA
-pip install -e ".[test]"
-```
-
 **Requirements:** Python 3.10+, MNE-Python, NumPy, SciPy, pandas, h5py.
 
 ---
