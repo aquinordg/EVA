@@ -38,17 +38,34 @@ from .metrics import compute_psd, detect_bad_channels
 logger = logging.getLogger(__name__)
 
 _LOADERS = {
-    "brainvision": mne.io.read_raw_brainvision,
-    "edf":         mne.io.read_raw_edf,
-    "bdf":         mne.io.read_raw_bdf,
-    "eeglab":      mne.io.read_raw_eeglab,
+    "brainvision": mne.io.read_raw_brainvision,  # BrainProducts .vhdr
+    "edf":         mne.io.read_raw_edf,           # European Data Format
+    "bdf":         mne.io.read_raw_bdf,           # BioSemi BDF
+    "eeglab":      mne.io.read_raw_eeglab,        # EEGLAB .set
+    "gdf":         mne.io.read_raw_gdf,           # General Data Format (OpenBCI, g.tec)
+    "egi":         mne.io.read_raw_egi,           # EGI/Philips .mff or .raw
+    "cnt":         mne.io.read_raw_cnt,           # Neuroscan .cnt
+    "nihon":       mne.io.read_raw_nihon,         # Nihon Kohden .eeg
+    "persyst":     mne.io.read_raw_persyst,       # Persyst .lay
+    "curry":       mne.io.read_raw_curry,         # CURRY .cdt / .dat
+    "nicolet":     mne.io.read_raw_nicolet,       # Nicolet .data
 }
 
+# Auto-detection from file extension. Ambiguous extensions (.raw, .dat, .data,
+# .mat) are intentionally excluded — pass input_type explicitly for those.
+# Note: .eeg maps to Nihon Kohden; BrainVision .eeg is an internal companion
+# file and is never opened directly (use the .vhdr header instead).
 _EXT_TO_TYPE = {
     ".vhdr": "brainvision",
     ".edf":  "edf",
     ".bdf":  "bdf",
     ".set":  "eeglab",
+    ".gdf":  "gdf",
+    ".mff":  "egi",
+    ".cnt":  "cnt",
+    ".eeg":  "nihon",
+    ".lay":  "persyst",
+    ".cdt":  "curry",
 }
 
 
@@ -77,8 +94,13 @@ def convert(
         Input file. A plain filename is resolved relative to the current
         working directory.
     input_type
-        Source format: ``"auto"`` (detect from extension), ``"brainvision"``,
-        ``"edf"``, ``"bdf"``, or ``"eeglab"``.
+        Source format. ``"auto"`` detects from the file extension.
+        Explicit values: ``"brainvision"``, ``"edf"``, ``"bdf"``,
+        ``"eeglab"``, ``"gdf"``, ``"egi"``, ``"cnt"`` (Neuroscan),
+        ``"nihon"`` (Nihon Kohden), ``"persyst"``, ``"curry"``,
+        ``"nicolet"``. Use an explicit value for extensions that are
+        ambiguous (e.g. ``input_type="egi"`` for EGI ``.raw`` files,
+        ``input_type="curry"`` for CURRY ``.dat`` files).
     output
         Destination .fif file. Defaults to the same directory as *path*,
         with the same stem and a ``.fif`` extension.

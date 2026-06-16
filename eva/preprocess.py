@@ -34,13 +34,20 @@ from .report import ReportGenerator
 
 logger = logging.getLogger(__name__)
 
-# Supported formats for direct loading (without convert() first)
+# Supported formats for direct loading (without convert() first).
+# Mirrors convert._EXT_TO_TYPE plus .fif (MNE native).
 _DIRECT_LOADERS = {
     ".fif":  mne.io.read_raw_fif,
     ".vhdr": mne.io.read_raw_brainvision,
     ".edf":  mne.io.read_raw_edf,
     ".bdf":  mne.io.read_raw_bdf,
     ".set":  mne.io.read_raw_eeglab,
+    ".gdf":  mne.io.read_raw_gdf,
+    ".mff":  mne.io.read_raw_egi,
+    ".cnt":  mne.io.read_raw_cnt,
+    ".eeg":  mne.io.read_raw_nihon,
+    ".lay":  mne.io.read_raw_persyst,
+    ".cdt":  mne.io.read_raw_curry,
 }
 
 
@@ -75,7 +82,11 @@ def preprocess(
     ----------
     source
         File path (str or Path) or a pre-loaded ``mne.Raw`` object.
-        Supported formats: .fif, .vhdr, .edf, .bdf, .set.
+        Supported extensions for auto-detection: ``.fif``, ``.vhdr``,
+        ``.edf``, ``.bdf``, ``.set``, ``.gdf``, ``.mff``, ``.cnt``
+        (Neuroscan), ``.eeg`` (Nihon Kohden), ``.lay`` (Persyst),
+        ``.cdt`` (CURRY). For ambiguous extensions pass a pre-loaded
+        ``mne.Raw`` object or use :func:`convert` first.
         A plain filename is resolved relative to the current working directory.
     l_freq, h_freq
         Butterworth bandpass cutoffs (Hz).
