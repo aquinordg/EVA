@@ -5,7 +5,7 @@
 
 # EVA — EEG data Validation and preprocessing Assistant
 
-EVA is a Python library for preprocessing EEG (electroencephalography) recordings. It accepts recordings in the most common formats (BrainVision `.vhdr`, EDF/BDF, EEGLAB `.set`, MNE `.fif`), applies a configurable filter chain, evaluates per-channel and recording-level signal quality, saves processed epochs as HDF5 archives (`.h5`), and generates self-contained HTML reports — all with a three-function API.
+EVA is a Python library for preprocessing EEG (electroencephalography) recordings. It accepts recordings in all formats supported by MNE-Python — BrainVision `.vhdr`, EDF, BDF, EEGLAB `.set`, GDF, EGI `.mff`, Neuroscan `.cnt`, Nihon Kohden `.eeg`, Persyst `.lay`, CURRY `.cdt`, Nicolet, and MNE-native `.fif` — applies a configurable filter chain, evaluates per-channel and recording-level signal quality, saves processed epochs as HDF5 archives (`.h5`), and generates self-contained HTML reports — all with a three-function API.
 
 EVA is built on top of [MNE-Python](https://mne.tools), an open-source library for EEG/MEG (magnetoencephalography) analysis.
 
@@ -77,7 +77,7 @@ which channels to exclude.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `path` | str / Path | — | Input file path |
-| `input_type` | str | `"auto"` | Format: `"auto"` detects from extension, or `"brainvision"`, `"edf"`, `"bdf"`, `"eeglab"`, `"fif"` |
+| `input_type` | str | `"auto"` | `"auto"` detects from extension. Explicit: `"brainvision"`, `"edf"`, `"bdf"`, `"eeglab"`, `"gdf"`, `"egi"`, `"cnt"`, `"nihon"`, `"persyst"`, `"curry"`, `"nicolet"`. Use explicit value for ambiguous extensions (e.g. `input_type="egi"` for `.raw`, `input_type="curry"` for `.dat`). |
 | `output` | str / Path | same dir as input | Destination `.fif` path |
 | `channel_picks` | list[str] | `None` (keep all) | Channel names to keep, e.g. `["Fz", "Cz", "Pz"]` |
 | `report` | bool | `False` | Generate HTML bad-channel report |
