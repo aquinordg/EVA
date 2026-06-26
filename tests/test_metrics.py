@@ -6,6 +6,7 @@ import pytest
 
 from eva.metrics import (
     QualityConfig,
+    adc_clipping_fraction,
     detect_bad_channels,
     evaluate_all_channels,
     hjorth_parameters,
@@ -137,6 +138,12 @@ class TestQualityConfig:
         assert result["channel"] == "Cz"
         assert "snr_db" in result
 
+    def test_snr_not_a_flag(self):
+        rng = np.random.default_rng(0)
+        ch = rng.standard_normal(N_SAMP) * 20e-6
+        result = QualityConfig().evaluate("Cz", ch, ch * 0.99, SFREQ)
+        assert "flag_low_snr" not in result
+
     def test_flat_channel_flagged(self):
         flat = np.ones(N_SAMP) * 1e-9
         result = QualityConfig().evaluate("Fz", flat, flat * 0.99, SFREQ)
@@ -147,6 +154,46 @@ class TestQualityConfig:
         ch = rng.standard_normal(N_SAMP) * 500e-6
         result = QualityConfig().evaluate("C3", ch, ch * 0.99, SFREQ)
         assert result["flag_high_amplitude"] is True
+
+    def test_adc_clipping_flagged(self):
+        rng = np.random.default_rng(2)
+        ch = rng.standard_normal(N_SAMP) * 20e-6
+        # Saturate 1% of samples at the max value
+        ch[:20] = ch.max()
+        result = QualityConfig().evaluate("Fz", ch, ch * 0.99, SFREQ,
+                                          adc_clip_frac=20 / N_SAMP)
+        assert result["flag_adc_clipping"] is True
+
+    def test_adc_clipping_not_flagged_below_threshold(self):
+        rng = np.random.default_rng(3)
+        ch = rng.standard_normal(N_SAMP) * 20e-6
+        result = QualityConfig().evaluate("Fz", ch, ch * 0.99, SFREQ,
+                                          adc_clip_frac=0.0)
+        assert result["flag_adc_clipping"] is False
+
+
+class TestAdcClippingFraction:
+    def test_clean_signal_near_zero(self):
+        rng = np.random.default_rng(0)
+        data = rng.standard_normal((N_CH, N_SAMP)) * 20e-6
+        fracs = adc_clipping_fraction(data)
+        assert np.all(fracs < 0.01)
+
+    def test_saturated_channel_detected(self):
+        rng = np.random.default_rng(1)
+        data = rng.standard_normal((2, N_SAMP)) * 20e-6
+        # Saturate channel 0 at 200 uV for 2% of samples (40/2000)
+        data[0, :40] = 200e-6
+        fracs = adc_clipping_fraction(data)
+        # Saturated channel should show >> 2/N (natural min/max fraction)
+        assert fracs[0] > 0.01
+        # Clean channel fraction is at most 2/N (one min + one max)
+        assert fracs[1] <= 2 / N_SAMP + 1e-10
+
+    def test_output_shape(self):
+        rng = np.random.default_rng(2)
+        data = rng.standard_normal((N_CH, N_SAMP)) * 20e-6
+        assert adc_clipping_fraction(data).shape == (N_CH,)
 
 
 class TestDetectBadChannels:

@@ -7,7 +7,8 @@ MNE objects.  The canonical data shape is (n_channels, n_samples).
 Metrics
 -------
 - MAE / MSE              : error magnitude between raw and processed signals
-- SNR                    : signal-to-noise ratio in dB (variance-based)
+- SNR                    : signal-to-noise ratio in dB (variance-based, informational)
+- ADC clipping fraction  : fraction of samples stuck at the exact min/max value
 - PaLOSi                 : Parallel LOg Spectra index — recording-level
                            spectral homogeneity (scalar, [0, 1])
 - Log-Spectra Deviation  : per-channel deviation from ensemble median log-PSD
@@ -91,6 +92,34 @@ def snr_db(raw: np.ndarray, processed: np.ndarray) -> np.ndarray:
     return 10.0 * np.log10(
         (np.var(raw, axis=-1) + 1e-30) / (np.var(noise, axis=-1) + 1e-30)
     )
+
+
+def adc_clipping_fraction(data: np.ndarray) -> np.ndarray:
+    """
+    Per-channel fraction of samples at the exact minimum or maximum value.
+
+    When an amplifier's voltage range is exceeded, the ADC saturates and
+    multiple consecutive samples are stored at the same extreme value.
+    A fraction above ~0.1% is a reliable indicator of ADC saturation
+    during recording, regardless of amplifier model or voltage range.
+
+    Parameters
+    ----------
+    data : (n_channels, n_samples)
+        Raw or DC-detrended EEG signal. DC detrending preserves the
+        clipping pattern because all stuck samples shift by the same offset.
+
+    Returns
+    -------
+    (n_channels,) float array — fraction in [0, 1]; higher means more clipping.
+    """
+    n = data.shape[-1]
+    result = np.empty(data.shape[0])
+    for i in range(data.shape[0]):
+        ch = data[i]
+        min_val, max_val = ch.min(), ch.max()
+        result[i] = int(np.sum((ch == min_val) | (ch == max_val))) / n
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -343,8 +372,6 @@ class QualityConfig:
 
     Parameters
     ----------
-    snr_threshold : float
-        Minimum acceptable SNR (dB).  Channels below this are flagged.
     log_spectra_dev_threshold : float
         Maximum acceptable Log-Spectra Deviation score.  Channels above
         this are flagged as spectral outliers.
@@ -354,12 +381,16 @@ class QualityConfig:
     high_amplitude_threshold : float
         Channels with peak |amplitude| above this value (V) are flagged.
         Default 150 uV = 150e-6 V.
+    adc_clip_fraction_threshold : float
+        Channels where more than this fraction of samples are stuck at the
+        exact min or max value are flagged as ADC-saturated.
+        Default 0.001 (0.1%).
     """
 
-    snr_threshold: float = 10.0
     log_spectra_dev_threshold: float = 2.0
-    flat_std_threshold: float = 100e-9    # 0.1 uV in volts
-    high_amplitude_threshold: float = 150e-6  # 150 uV in volts
+    flat_std_threshold: float = 100e-9         # 0.1 uV in volts
+    high_amplitude_threshold: float = 150e-6   # 150 uV in volts
+    adc_clip_fraction_threshold: float = 0.001 # 0.1%
 
     def evaluate(
         self,
@@ -368,6 +399,7 @@ class QualityConfig:
         processed_ch: np.ndarray,
         sfreq: float,
         log_spectra_dev: float = 0.0,
+        adc_clip_frac: float = 0.0,
     ) -> Dict:
         """
         Run all diagnostic tests for a single channel.
@@ -383,10 +415,16 @@ class QualityConfig:
                            sfreq)`` in :func:`evaluate_all_channels`.  Requires the
                            full channel ensemble; computing on a single channel
                            always yields 0 and must not be done here.
+        adc_clip_frac    : pre-computed ADC clipping fraction for this channel,
+                           obtained from :func:`adc_clipping_fraction` on the raw
+                           data before DC detrending.
 
         Returns
         -------
         dict with metric values, individual flags, and an overall ``status``.
+        SNR is included as an informational metric but does not contribute to
+        the channel status — near-zero SNR is expected for clean EEG where
+        most signal energy already lies within the filter passband.
         """
         snr_val = float(snr_db(raw_ch[None], processed_ch[None])[0])
         mae_val = float(mae(raw_ch[None], processed_ch[None])[0])
@@ -398,15 +436,16 @@ class QualityConfig:
         mobility_val = float(mobility[0])
         complexity_val = float(complexity[0])
 
-        std_val = float(np.std(processed_ch))
+        std_val  = float(np.std(processed_ch))
         peak_val = float(np.max(np.abs(processed_ch)))
 
-        flag_flat = std_val < self.flat_std_threshold
-        flag_high_amplitude = peak_val > self.high_amplitude_threshold
-        flag_low_snr = snr_val < self.snr_threshold
+        flag_flat             = std_val < self.flat_std_threshold
+        flag_high_amplitude   = peak_val > self.high_amplitude_threshold
         flag_spectral_outlier = log_spectra_dev > self.log_spectra_dev_threshold
+        flag_adc_clipping     = adc_clip_frac > self.adc_clip_fraction_threshold
 
-        n_flags = sum([flag_flat, flag_high_amplitude, flag_low_snr, flag_spectral_outlier])
+        n_flags = sum([flag_flat, flag_high_amplitude,
+                       flag_spectral_outlier, flag_adc_clipping])
         if n_flags == 0:
             status = "good"
         elif n_flags == 1:
@@ -415,22 +454,23 @@ class QualityConfig:
             status = "bad"
 
         return {
-            "channel": ch_name,
-            "status": status,
-            "snr_db": snr_val,
-            "mae_V": mae_val,
-            "mse_V2": mse_val,
-            "log_spectra_dev": log_spectra_dev,
-            "spectral_entropy": entropy_val,
-            "hjorth_activity": activity_val,
-            "hjorth_mobility": mobility_val,
-            "hjorth_complexity": complexity_val,
-            "std_V": std_val,
-            "peak_V": peak_val,
-            "flag_flat": flag_flat,
-            "flag_high_amplitude": flag_high_amplitude,
-            "flag_low_snr": flag_low_snr,
+            "channel":              ch_name,
+            "status":               status,
+            "snr_db":               snr_val,
+            "mae_V":                mae_val,
+            "mse_V2":               mse_val,
+            "log_spectra_dev":      log_spectra_dev,
+            "spectral_entropy":     entropy_val,
+            "hjorth_activity":      activity_val,
+            "hjorth_mobility":      mobility_val,
+            "hjorth_complexity":    complexity_val,
+            "std_V":                std_val,
+            "peak_V":               peak_val,
+            "adc_clip_frac":        adc_clip_frac,
+            "flag_flat":            flag_flat,
+            "flag_high_amplitude":  flag_high_amplitude,
             "flag_spectral_outlier": flag_spectral_outlier,
+            "flag_adc_clipping":    flag_adc_clipping,
         }
 
 
@@ -539,13 +579,15 @@ def evaluate_all_channels(
     if diagnostics is None:
         diagnostics = QualityConfig()
 
-    # Log-Spectra Deviation must be computed on all channels simultaneously.
-    lsd_scores = log_spectra_deviation(processed_data, sfreq)  # (n_channels,)
+    # Both LSD and ADC clipping require the full channel ensemble.
+    lsd_scores  = log_spectra_deviation(processed_data, sfreq)
+    clip_fracs  = adc_clipping_fraction(raw_data)
 
     rows = [
         diagnostics.evaluate(
             name, raw_data[i], processed_data[i], sfreq,
             log_spectra_dev=float(lsd_scores[i]),
+            adc_clip_frac=float(clip_fracs[i]),
         )
         for i, name in enumerate(ch_names)
     ]

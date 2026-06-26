@@ -1,7 +1,6 @@
 [![PyPI](https://img.shields.io/pypi/v/eva-eeg)](https://pypi.org/project/eva-eeg/)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
-![CI](https://github.com/aquinordga/EVA/actions/workflows/ci.yml/badge.svg)
 
 # EVA — EEG data Validation and preprocessing Assistant
 
@@ -250,18 +249,18 @@ default 150 µV threshold is flagging healthy channels as bad, raise it:
 
 | Parameter | Default | What triggers the flag |
 |---|---|---|
-| `snr_threshold` | `10.0` dB | SNR below this value |
-| `log_spectra_dev_threshold` | `2.0` | Spectrum deviates more than this × the median |
 | `flat_std_threshold` | `100e-9` (0.1 µV) | Channel std below this — dead electrode |
 | `high_amplitude_threshold` | `150e-6` (150 µV) | Peak amplitude above this — large artefact |
+| `log_spectra_dev_threshold` | `2.0` | Spectrum deviates more than this × the median |
+| `adc_clip_fraction_threshold` | `0.001` (0.1%) | Fraction of samples stuck at exact min/max above this — ADC saturation |
 
 ```python
 from eva import preprocess, QualityConfig
 
 # Example: loosen amplitude threshold for a high-impedance setup
 cfg = QualityConfig(
-    high_amplitude_threshold=300e-6,    # accept up to 300 µV
-    snr_threshold=5.0,                  # accept lower SNR
+    high_amplitude_threshold=300e-6,         # accept up to 300 µV
+    adc_clip_fraction_threshold=0.005,       # tolerate up to 0.5% clipping
 )
 preprocess("subject01.fif", diagnostics=cfg)
 ```
@@ -326,7 +325,8 @@ report and in `channel_quality.csv`:
 
 | Metric | What it measures |
 |---|---|
-| **SNR — Signal-to-Noise Ratio (dB)** | How much the filter changed the signal: `10·log₁₀(Var(raw) / Var(raw − processed))`. High positive values mean strong filtering; values near 0 mean the signal was barely changed. |
+| **SNR — Signal-to-Noise Ratio (dB)** | How much the filter changed the signal: `10·log₁₀(Var(raw) / Var(raw − processed))`. Reported for information only — values near 0 are normal for clean EEG where most signal energy already lies within the passband. |
+| **ADC clipping fraction** | Fraction of samples stuck at the exact minimum or maximum value, indicating amplifier saturation during recording. Values above ~0.1% are a reliable indicator of ADC clipping. |
 | **Log-Spectra Deviation** | How much a channel's power spectrum deviates from the median spectrum across all channels. High values point to outlier channels (artefact-dominated or dead). |
 | **Spectral entropy** | How flat (broadband) the channel's spectrum is. White noise has entropy ≈ 1; a clean EEG with dominant alpha rhythm has lower entropy. |
 | **Hjorth activity** | Signal variance — a simple proxy for signal power. |
@@ -342,7 +342,8 @@ Each channel is assigned a status based on the number of quality flags raised:
 | **bad** | ≥ 2 | Likely artefact-dominated or dead electrode |
 
 Flags: `flag_flat` (nearly zero variance — dead electrode), `flag_high_amplitude`
-(extreme peaks — movement or sweat artefact), `flag_low_snr`, `flag_spectral_outlier`.
+(extreme peaks — movement or sweat artefact), `flag_adc_clipping` (ADC saturation),
+`flag_spectral_outlier` (spectrum far from channel ensemble).
 
 ### Recording-level metric — PaLOSi
 
@@ -518,8 +519,8 @@ eva/
 ├── optimizer.py   Grid search over filter strategies
 ├── filters.py     DCDetrend, ButterworthFilter, NotchFilter,
 │                  AverageReference, SoftClipper
-├── metrics.py     snr_db, palosi, spectral_entropy, hjorth_parameters,
-│                  QualityConfig, evaluate_all_channels
+├── metrics.py     snr_db, adc_clipping_fraction, palosi, spectral_entropy,
+│                  hjorth_parameters, QualityConfig, evaluate_all_channels
 └── report.py      HTML + CSV report generation
 ```
 
