@@ -33,4 +33,4 @@ from .metrics import QualityConfig
 from .align import align_veca
 
 __all__ = ["convert", "preprocess", "sync", "QualityConfig", "align_veca"]
-__version__ = "1.1.0"
+__version__ = "1.1.1"
