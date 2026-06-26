@@ -188,6 +188,49 @@ sync("subject01.h5",
 sync("subject01.h5", behavioral={"rt": corrected_rt}, overwrite=True)
 ```
 
+### `align_veca(vhdr_path, csv_path)`
+
+Aligns a VECA-EEG trial CSV with a BrainVision recording, using the
+Windows system clock as the common time base. Injects trial annotations
+into the returned `mne.Raw` object so that `preprocess()` can epoch
+around each cognitive task.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `vhdr_path` | str / Path | Path to the BrainVision header file (`.vhdr`). The companion `.vmrk` must be in the same directory. |
+| `csv_path` | str / Path | Path to the VECA-EEG results CSV (`VECA_<ID>_<timestamp>.csv`). Required columns: `trial_start`, `trial_end`, `feature`, `value`. |
+
+**Returns** `(raw, trials)`:
+- `raw` — `mne.io.BaseRaw` with VECA trial annotations injected
+- `trials` — `DataFrame` with columns `feature`, `value`, `onset_s`, `duration_s`, `onset_sample`
+
+```python
+from eva import align_veca, preprocess, sync
+
+# 1. Align CSV timestamps with the BrainVision recording
+raw, trials = align_veca("VECA_XK4TW2.vhdr",
+                          "VECA_XK4TW2_20260626_143000.csv")
+
+# 2. Preprocess and epoch (one epoch per trial, 0–8 s window)
+preprocess(raw, epoch_tmin=0.0, epoch_tmax=8.0)
+# Output: VECA_XK4TW2.h5
+
+# 3. Attach per-trial VECA scores to the .h5
+sync("VECA_XK4TW2.h5", behavioral={"score": trials["value"].values})
+```
+
+**How the alignment works:** `align_veca()` reads the `New Segment`
+timestamp from the `.vmrk` file (recording start, µs resolution) and
+computes `onset_s = (trial_start_datetime − recording_start).total_seconds()`
+for each row in the CSV. This method does not require an active LSL
+connection during recording or analysis.
+
+**Raises:**
+- `FileNotFoundError` — if `.vhdr`, `.vmrk`, or CSV is missing
+- `ValueError` — if required CSV columns are absent, or if any trial falls outside the recording window
+
+---
+
 ### `QualityConfig` — custom channel quality thresholds
 
 `QualityConfig` is a configuration object that controls how EVA classifies
@@ -467,7 +510,8 @@ paradigms.
 
 ```
 eva/
-├── __init__.py    Public API: convert, preprocess, sync, QualityConfig
+├── __init__.py    Public API: convert, preprocess, sync, QualityConfig, align_veca
+├── align.py       align_veca() — VECA-EEG CSV-to-BrainVision alignment
 ├── convert.py     Format normalisation to .fif
 ├── preprocess.py  Filter chain, epoching, .h5 output, HTML report
 ├── sync.py        Attach behavioural/physio data to an existing .h5
