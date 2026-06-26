@@ -70,7 +70,6 @@ def preprocess(
     channel_picks: Optional[List[str]] = None,
     diagnostics: Optional[QualityConfig] = None,
     optimize: bool = False,
-    alpha: float = 0.5,
     report: bool = True,
     output: Optional[Union[str, Path]] = None,
     report_dir: Optional[Union[str, Path]] = None,
@@ -109,13 +108,10 @@ def preprocess(
     diagnostics
         Quality thresholds for per-channel evaluation. Uses defaults if None.
     optimize
-        When ``True``, runs a grid search over preprocessing strategies and
-        applies the best-scoring one (highest SNR + PaLOSi composite score),
-        overriding the filter/clipping parameters provided above.
-    alpha
-        Weight for the optimizer scoring function (0–1). Only used when
-        ``optimize=True``. ``alpha=1.0`` maximises SNR; ``alpha=0.0``
-        minimises deviation from PaLOSi target (0.45). Default ``0.5``.
+        When ``True``, runs a grid search over 864 preprocessing configurations
+        and applies the one whose PaLOSi is closest to 0.45 (midpoint of the
+        ideal [0.3, 0.6] range), overriding the filter/clipping parameters
+        provided above.
     report
         When ``True``, generates an HTML quality report alongside the .h5 output.
     output
@@ -136,7 +132,7 @@ def preprocess(
     if optimize:
         from .optimizer import find_best_params
         logger.info("Running grid search for '%s'...", stem)
-        best = find_best_params(raw.get_data(), sfreq, alpha=alpha)
+        best = find_best_params(raw.get_data(), sfreq)
         l_freq             = best["l_freq"]
         h_freq             = best["h_freq"]
         filter_order       = best["filter_order"]

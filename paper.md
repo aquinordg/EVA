@@ -32,8 +32,8 @@ it into epochs aligned to event annotations, and saves the result as a
 compressed HDF5 file; and `sync()` appends per-epoch behavioural and
 physiological co-variables to the same file, producing a single
 self-contained artefact per participant. An optional grid-search
-optimiser (`find_best_params()`) identifies the filter configuration that
-maximises a composite signal quality score before full processing.
+optimiser (`find_best_params()`) identifies the filter configuration whose
+PaLOSi is closest to the ideal range centre before full processing.
 
 # Statement of need
 
@@ -136,25 +136,30 @@ criteria: flatness (std below 100 nV), high amplitude (peak above
 Channels meeting two or more criteria are flagged as *bad* and can be
 excluded via `channel_picks` in the subsequent `preprocess()` call.
 
-After filtering, `preprocess()` computes per-channel diagnostics
-(SNR, spectral entropy, Hjorth parameters [@Hjorth1970]) and the
-recording-level PaLOSi index [@Hu2025], a measure of cross-spectral
-homogeneity that detects over-preprocessing and dominant artefacts.
-All metrics are exported to the HTML report and companion CSV files.
+After filtering, `preprocess()` computes per-channel diagnostics —
+SNR (informational only), ADC clipping fraction, spectral entropy,
+Hjorth parameters [@Hjorth1970] — and the recording-level PaLOSi index
+[@Hu2025], a measure of cross-spectral homogeneity that detects
+over-preprocessing and dominant artefacts. Four boolean flags determine
+channel status: `flag_flat`, `flag_high_amplitude`, `flag_adc_clipping`,
+and `flag_spectral_outlier`. All metrics are exported to the HTML report
+and companion CSV files.
 
 ## Pipeline optimiser
 
 `find_best_params(data, sfreq)` performs an exhaustive grid search over
 candidate values for bandpass cutoffs, filter order, notch frequency,
 artefact threshold, and optional processing steps. Each configuration is
-scored by a composite metric:
+scored by:
 
-$$\text{score} = \alpha \cdot \overline{\text{SNR}}_{\text{dB}} - (1 - \alpha) \cdot |\text{PaLOSi} - 0.45|$$
+$$\text{score} = -|\text{PaLOSi} - 0.45|$$
 
-where $\alpha$ (default 0.5) balances reconstruction fidelity against
-spectral quality. The penalty term drives the pipeline toward the centre
-of the ideal PaLOSi range [0.3, 0.6] identified by Hu et al. [@Hu2025].
-The returned parameter dictionary unpacks directly into `preprocess()`.
+The penalty drives the pipeline toward 0.45, the centre of the ideal
+PaLOSi range [0.3, 0.6] identified by Hu et al. [@Hu2025]. SNR is not
+used in scoring: for clean EEG, SNR ≈ 0 dB is the expected outcome
+(most signal energy already lies within the passband), making it
+uninformative as an optimisation criterion. The returned parameter
+dictionary unpacks directly into `preprocess()`.
 
 ## Output format
 
@@ -167,11 +172,12 @@ artefact through the analysis pipeline.
 
 # Tests and continuous integration
 
-EVA ships with a test suite of 70 unit tests covering all public
+EVA ships with a test suite of 94 unit tests covering all public
 functions and internal helpers (`tests/test_filters.py`,
-`test_metrics.py`, `test_pipeline.py`). A GitHub Actions workflow runs
-the full suite on Python 3.10, 3.11, and 3.12 on every push and pull
-request. Contribution guidelines are documented in `CONTRIBUTING.md`.
+`test_metrics.py`, `test_pipeline.py`, `test_align.py`). A GitHub
+Actions workflow runs the full suite on Python 3.10, 3.11, and 3.12 on
+every push and pull request. Contribution guidelines are documented in
+`CONTRIBUTING.md`.
 
 # Limitations
 

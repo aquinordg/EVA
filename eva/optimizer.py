@@ -1,20 +1,21 @@
 """Grid-search optimisation for the EEG preprocessing pipeline.
 
-Evaluates every combination of filter parameters, scores each with a
-composite SNR + PaLOSi metric, and returns the best-scoring parameter set.
+Evaluates every combination of filter parameters, scores each with PaLOSi,
+and returns the best-scoring parameter set.
 
 Scoring
 -------
-    score = α × mean_SNR_dB  −  (1 − α) × |PaLOSi − 0.45|
+    score = -(|PaLOSi − 0.45|)
 
-Higher is better.  ``α`` controls the trade-off between reconstruction
-fidelity (SNR) and spectral quality (PaLOSi).
+Higher is better (less negative).  The score penalises any deviation from the
+centre of the ideal PaLOSi range [0.3, 0.6] identified by Hu et al. (2025).
+Values below 0.3 indicate insufficient denoising; values above 0.6 indicate
+over-preprocessing.  Targeting 0.45 (the midpoint) drives the pipeline toward
+the clean-EEG sweet spot.
 
-The PaLOSi term penalises deviation from the centre of the ideal range
-[0.3, 0.6] identified by Hu et al. (2025).  Values below 0.3 indicate
-insufficient denoising; values above 0.6 indicate over-preprocessing.
-Minimising |PaLOSi − 0.45| drives the pipeline towards the clean-EEG
-sweet spot rather than blindly pushing PaLOSi toward zero.
+SNR is not used in scoring: for clean EEG, SNR ≈ 0 dB is the expected and
+correct outcome (most signal energy already lies within the passband), making
+it uninformative as an optimisation criterion.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ import numpy as np
 from tqdm import tqdm
 
 from .filters import AverageReference, ButterworthFilter, DCDetrend, NotchFilter, SoftClipper
-from .metrics import palosi, snr_db
+from .metrics import palosi
 
 logger = logging.getLogger(__name__)
 
@@ -64,36 +65,28 @@ def _build_chain(params: Dict[str, Any]) -> list:
     return steps
 
 
-def _composite_score(
-    raw_detrended: np.ndarray,
-    processed: np.ndarray,
-    sfreq: float,
-    alpha: float,
-) -> float:
-    mean_snr = float(np.mean(snr_db(raw_detrended, processed)))
+def _composite_score(processed: np.ndarray, sfreq: float) -> float:
     pal = float(palosi(processed, sfreq))
-    palosi_penalty = abs(pal - _PALOSI_TARGET)
-    return alpha * mean_snr - (1.0 - alpha) * palosi_penalty
+    return -(abs(pal - _PALOSI_TARGET))
 
 
 def find_best_params(
     data: np.ndarray,
     sfreq: float,
     grid: Optional[Dict[str, List]] = None,
-    alpha: float = 0.5,
 ) -> Dict[str, Any]:
     """
     Find the best preprocessing parameters via grid search.
 
-    Tries every combination of filter settings, scores each with
-    SNR + PaLOSi, and returns the winning parameter set.
+    Tries every combination of filter settings, scores each by how close
+    the resulting PaLOSi is to 0.45 (midpoint of the ideal [0.3, 0.6] range),
+    and returns the winning parameter set.
 
     Parameters
     ----------
     data  : (n_channels, n_samples) raw EEG in volts
     sfreq : sampling frequency (Hz)
     grid  : custom grid of candidate values; uses built-in defaults when None
-    alpha : SNR weight in [0, 1]; 1 = SNR only, 0 = PaLOSi only
 
     Returns
     -------
@@ -104,7 +97,6 @@ def find_best_params(
     combos = list(itertools.product(*g.values()))
     logger.info("Grid search: %d configurations to evaluate", len(combos))
 
-    raw_detrended = DCDetrend().apply(data, sfreq)
     best_score = -np.inf
     best_params: Dict[str, Any] = {}
 
@@ -115,7 +107,7 @@ def find_best_params(
             processed = data.copy()
             for step in chain:
                 processed = step.apply(processed, sfreq)
-            score = _composite_score(raw_detrended, processed, sfreq, alpha)
+            score = _composite_score(processed, sfreq)
         except Exception as exc:
             logger.debug("Config %s raised %s — skipped.", params, exc)
             continue

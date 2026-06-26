@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 # Human-readable labels for quality metric columns
 _QUALITY_LABELS: Dict[str, str] = {
     "status":               "Status",
-    "snr_db":               "SNR (dB)",
+    "snr_db":               "SNR (dB) ⓘ",
     "mae_V":                "MAE (µV)",
     "mse_V2":               "MSE (µV²)",
     "log_spectra_dev":      "Log-Spectra Deviation",
@@ -61,9 +61,10 @@ _QUALITY_LABELS: Dict[str, str] = {
     "hjorth_complexity":    "Hjorth Complexity",
     "std_V":                "Std. Deviation (µV)",
     "peak_V":               "Peak Amplitude (µV)",
+    "adc_clip_frac":        "ADC Clip Fraction",
     "flag_flat":            "Flat / Dead Channel",
     "flag_high_amplitude":  "High Amplitude",
-    "flag_low_snr":         "Low SNR",
+    "flag_adc_clipping":    "ADC Clipping",
     "flag_spectral_outlier":"Spectral Outlier",
 }
 
@@ -88,10 +89,12 @@ _PARAM_LABELS: Dict[str, str] = {
 
 # Short glossary entries shown at the bottom of the report
 _GLOSSARY: List[tuple] = [
-    ("SNR (Signal-to-Noise Ratio, dB)",
-     "Measures how much of the original signal was preserved after filtering. "
-     "Higher values indicate less distortion. Values near 0 dB are expected when "
-     "the raw signal contains a large DC component that the high-pass filter removes."),
+    ("SNR (Signal-to-Noise Ratio, dB) — informational only",
+     "Ratio of raw signal variance to the variance of the component removed by the "
+     "filter chain: 10·log₁₀(Var(raw) / Var(raw − processed)). "
+     "Values near 0 dB are normal for clean EEG, because most signal energy already "
+     "lies within the 1–40 Hz passband and the filter changes very little. "
+     "SNR is not used as a quality flag — it does not determine channel status."),
     ("PaLOSi — Recording-Level Spectral Homogeneity",
      "A single value for the whole recording, in the range [0, 1]. Measures the "
      "structural homogeneity of cross-spectral matrices across frequencies. "
@@ -437,7 +440,7 @@ def _quality_table_html(quality_df: pd.DataFrame) -> str:
     display_order = [
         "status", "snr_db", "log_spectra_dev", "spectral_entropy",
         "std_V", "peak_V", "hjorth_mobility", "hjorth_complexity",
-        "flag_flat", "flag_high_amplitude", "flag_low_snr", "flag_spectral_outlier",
+        "flag_flat", "flag_high_amplitude", "flag_adc_clipping", "flag_spectral_outlier",
     ]
     cols = [c for c in display_order if c in quality_df.columns]
 

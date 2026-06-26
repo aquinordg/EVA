@@ -122,7 +122,7 @@ object directly.
 | `epoch_tmax` | float | `1.0` | Epoch end in seconds relative to each event |
 | `channel_picks` | list[str] | `None` (keep all) | Channel names to keep |
 | `diagnostics` | QualityConfig | `None` (defaults) | Custom quality thresholds |
-| `optimize` | bool | `False` | Run grid search to find best filter parameters first |
+| `optimize` | bool | `False` | Run grid search to find the configuration with PaLOSi closest to 0.45 |
 | `report` | bool | `True` | Generate HTML quality report |
 | `output` | str / Path | same dir as source | Destination `.h5` path |
 | `report_dir` | str / Path | same dir as source | Where to save the report folder |
@@ -371,20 +371,17 @@ When `optimize=True`, EVA tries every combination in the default grid
 below, scores each with the formula:
 
 ```
-score = α × mean_SNR  −  (1 − α) × |PaLOSi − 0.45|
+score = -(|PaLOSi − 0.45|)
 ```
 
-**α (alpha)** is a weight between 0 and 1 that you set via the `alpha`
-parameter (default `0.5`). It controls the balance between two goals:
+The score penalises any departure from 0.45, the midpoint of the ideal
+PaLOSi range [0.3, 0.6]. The winning configuration — the one whose
+preprocessed signal is closest to that target — is applied automatically,
+overriding any filter parameters you passed explicitly.
 
-- **α = 1.0** → optimise for SNR only (maximise noise removed)
-- **α = 0.0** → optimise for PaLOSi only (target the ideal [0.3, 0.6] range)
-- **α = 0.5** → equal weight to both (recommended starting point)
-
-The `|PaLOSi − 0.45|` term penalises any departure from the centre of
-the ideal PaLOSi range (0.45 = midpoint of [0.3, 0.6]). The winning
-configuration is applied automatically, overriding any filter parameters
-you passed explicitly.
+SNR is not used in scoring: for clean EEG, SNR ≈ 0 dB is the expected and
+correct outcome (most signal energy already lies within the passband), so it
+carries no information about preprocessing quality.
 
 Parameters searched (default grid):
 
@@ -402,8 +399,7 @@ Total combinations: 4 × 3 × 2 × 3 × 3 × 2 × 2 = **864 configurations**.
 
 ```python
 from eva import preprocess
-preprocess("subject01.fif", optimize=True)          # alpha=0.5 (default)
-preprocess("subject01.fif", optimize=True, alpha=0.8)  # favour SNR
+preprocess("subject01.fif", optimize=True)
 ```
 
 ---
@@ -455,9 +451,9 @@ paradigms.
 
 | Dataset | N | Paradigm | Test | Result |
 |---|---|---|---|---|
-| MNE SSVEP (Nakanishi et al.) | 2 subjects, 32 ch, 1000 Hz | SSVEP (Steady-State Visual Evoked Potential) — visual flicker at 12 and 15 Hz | Peak power preserved ≥ 75% at both frequencies after filtering | **PASS** — mean ratio 0.797 |
-| PhysioNet EEGMMI | 5 subjects, 64 ch, 160 Hz | Resting state (eyes open / closed) | PaLOSi in [0.3, 0.6] for ≥ 50% of recordings | **PASS** — 50% in range |
-| MOABB BCI Competition IV 2a | 5 subjects, 22 ch, 250 Hz | Motor imagery — 4 classes (BCI, Brain-Computer Interface) | PaLOSi in [0.3, 0.6] for ≥ 50% of trials | **PASS** — 97% in range, mean PaLOSi 0.540 |
+| MNE SSVEP (Nakanishi et al.) | 2 subjects, 32 ch, 1000 Hz | SSVEP (Steady-State Visual Evoked Potential) — visual flicker at 12 and 15 Hz | Peak power preserved ≥ 75% at both frequencies after filtering | **PASS** — mean ratio 2.310 |
+| PhysioNet EEGMMI | 5 subjects, 64 ch, 160 Hz | Resting state (eyes open / closed) | PaLOSi in [0.3, 0.6] for ≥ 50% of recordings | **PASS** — 50% in range, mean PaLOSi 0.533 |
+| MOABB BCI Competition IV 2a | 5 subjects, 22 ch, 250 Hz | Motor imagery — 4 classes (BCI, Brain-Computer Interface) | PaLOSi in [0.3, 0.6] for ≥ 50% of subjects | **PASS** — 100% in range, mean PaLOSi 0.546 |
 
 > **Note on motor imagery and band power:** Applying Common Average Reference
 > to motor imagery data substantially reduces the absolute power in the mu
