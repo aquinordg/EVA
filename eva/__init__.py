@@ -19,12 +19,18 @@ Quick start
 
 # Steps 1–2 can be skipped: pass any supported file or mne.Raw to preprocess()
 >>> preprocess("subject01.vhdr", optimize=True, report=True)
+
+# VECA-EEG integration: align trial CSV with BrainVision recording
+>>> from eva import align_veca
+>>> raw, trials = align_veca("session.vhdr", "VECA_ABCDEF_ts.csv")
+>>> preprocess(raw, epoch_tmin=0.0, epoch_tmax=8.0)
 """
 
 from .convert import convert
 from .preprocess import preprocess
 from .sync import sync
 from .metrics import QualityConfig
+from .align import align_veca
 
-__all__ = ["convert", "preprocess", "sync", "QualityConfig"]
+__all__ = ["convert", "preprocess", "sync", "QualityConfig", "align_veca"]
 __version__ = "1.0.0"
