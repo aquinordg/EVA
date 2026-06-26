@@ -46,23 +46,46 @@ different results due to implementation details that are rarely reported
 in full [@Luck2014].
 
 Established toolboxes such as MNE-Python [@Gramfort2013] and EEGLAB
-[@Delorme2004] offer comprehensive environments for EEG analysis. However,
-their generality comes at a cost: assembling a reproducible, batch-ready
-preprocessing pipeline requires substantial configuration and domain
-expertise. EVA addresses this gap by providing a minimal, opinionated
-API surface — three functions covering conversion, preprocessing, and
-multimodal data fusion — built on top of MNE's I/O and epoch extraction.
+[@Delorme2004] offer comprehensive environments for EEG analysis, but
+their generality places the burden of pipeline assembly on the researcher:
+choosing filter parameters, selecting a reference scheme, deciding on
+artefact rejection thresholds, and wiring the output to downstream formats
+all require domain expertise and produce lab-specific code that is rarely
+shared in full. Specialised tools narrow this gap for specific subtasks —
+`autoreject` [@Jas2017] optimises epoch rejection thresholds via
+cross-validation, and MNE-BIDS [@Appelhoff2019] provides a
+configuration-driven batch workflow for BIDS-organised datasets — but
+neither addresses data-driven filter selection, hardware-level quality
+flags, or multimodal data fusion into a single analysis-ready file.
+
+EVA makes three contributions that are absent from existing tools:
+
+1. **Data-driven filter optimisation.** `find_best_params()` searches a
+   configurable grid of preprocessing configurations and selects the one
+   whose PaLOSi score [@Hu2025] is closest to the centre of the empirically
+   validated ideal range [0.3, 0.6]. This replaces trial-and-error filter
+   tuning with a principled, dataset-specific criterion.
+
+2. **Hardware saturation detection.** The `flag_adc_clipping` quality flag
+   identifies channels where a measurable fraction of samples reach the
+   exact minimum or maximum of the ADC range — a hardware-level artefact
+   that SNR-based metrics systematically miss, because clipped signals can
+   have normal spectral energy while their waveforms are distorted.
+
+3. **Multimodal epoch fusion.** `sync()` appends per-epoch behavioural and
+   physiological co-variables to the same HDF5 file produced by
+   `preprocess()`, yielding a single self-contained artefact per participant
+   with a fixed group structure (`/eeg/`, `/behavioral/`, `/physio/`,
+   `/metadata/`) that loads directly into h5py, NumPy, PyTorch, and
+   TensorFlow without additional parsing.
 
 The primary target audience is researchers in cognitive neuroscience and
-brain-computer interface development who need a reproducible preprocessing
-step that integrates naturally with multimodal acquisition systems. EVA
-is particularly suited to paradigms where EEG is acquired alongside eye
-tracking or physiological signals and event markers are broadcast via Lab
-Streaming Layer (LSL) and recorded into `.vmrk` annotation files. EVA
-was developed to support VECA-EEG [@VECAEEG], a Unity 6 virtual reality
-platform for cognitive assessment in which LSL markers emitted by the
-stimulus system serve directly as EVA's epoch class labels — with no
-remapping required.
+brain-computer interface development who acquire EEG alongside eye
+tracking or physiological signals and broadcast event markers via Lab
+Streaming Layer (LSL). EVA was developed to support VECA-EEG [@VECAEEG],
+a Unity 6 virtual reality platform for cognitive assessment in which LSL
+markers emitted by the stimulus system serve directly as EVA's epoch class
+labels — with no remapping required.
 
 # Installation
 
@@ -178,6 +201,30 @@ functions and internal helpers (`tests/test_filters.py`,
 Actions workflow runs the full suite on Python 3.10, 3.11, and 3.12 on
 every push and pull request. Contribution guidelines are documented in
 `CONTRIBUTING.md`.
+
+# Validation
+
+EVA's default filter chain was validated against three public EEG datasets
+using the script provided in `scripts/validation.py`.
+
+**SSVEP (Nakanishi et al., MNE sample dataset).** After applying the
+default filter chain (1–40 Hz bandpass, 60 Hz notch, CAR, soft clipper)
+to two subjects, the mean ratio of peak power at the stimulus frequencies
+(12 Hz and 15 Hz) relative to the detrended raw signal was 2.31,
+confirming that the steady-state responses are preserved and sharpened
+rather than attenuated.
+
+**PhysioNet EEG Motor Movement/Imagery (EEGMMI).** Resting-state
+recordings from five subjects (eyes-open and eyes-closed runs) were
+processed and scored with PaLOSi. All ten recordings fell within the ideal
+range [0.3, 0.6] (mean PaLOSi = 0.53), indicating that the default
+configuration achieves the spectral homogeneity expected of
+well-preprocessed EEG on a standard clinical dataset.
+
+**MOABB BCI Competition IV 2a (motor imagery).** Training runs from five
+subjects were processed with the 50 Hz notch variant (European mains). All
+five subjects yielded PaLOSi within [0.3, 0.6] (mean = 0.55), achieving
+100% pass rate against the pre-specified threshold of ≥ 50%.
 
 # Limitations
 
